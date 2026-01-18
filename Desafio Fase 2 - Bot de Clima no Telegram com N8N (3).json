@@ -1,0 +1,595 @@
+{
+  "name": "Desafio Fase 2 - Bot de Clima no Telegram com N8N",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# ROLE\nAtue como um assistente meteorológico amigável e prestativo para um bot de Telegram.\n\n# CONTEXTO\nVocê receberá dados climáticos brutos em formato JSON. Sua tarefa é transformar esses dados em uma mensagem legível, empática e organizada para o usuário final.\n\n# DADOS DE ENTRADA\nCidade: {{ $json.name }}\nTemperatura máxima: {{ $json.main.temp_max.round(1) }}\nTemperatura mínima: {{ $json.main.temp_min.round(1) }}\nCéu {{ $json.weather[0].description }}\nSensação térmica: {{ $json.main.feels_like.round(1) }}\nTemperatura: {{ $json.main.temp.round(1) }}\n\n\n# DIRETRIZES DE RESPOSTA\n1. Identifique a cidade, estado, temperatura atual, sensação térmica e descrição do tempo.\n2. Utilize Emojis pertinentes ao clima relatado.\n3. Mantenha um tom cordial (ex: \"Tenha um excelente dia\" ou \"Não esqueça o guarda-chuva\").\n4. Se houver chuva ou temperaturas extremas, inclua uma breve recomendação amigável.\n5. Use sempre emojis de acordo com as condições climáticas\n6. Termine sempre com alguma frase estrovertida de cada cidade ou estado\n7. Na sua resposta, quando for citar o nome da cidade, não responda com a UF, somente o nome da cidade mesmo.\n\n# EXEMPLOS DE ESTILO (Siga um destes padrões conforme a variação do clima)\n- Estilo Informativo: \"🌤️ Previsão para São Paulo, SP. A temperatura atual é de 24ºC...\"\n- Estilo Detalhado: \"📍 Clima em Curitiba, PR. Atualmente faz 18ºC, mas a sensação é de 16ºC...\"\n- Estilo Minimalista: \"🌤️ Salvador, BA | 28ºC. O tempo está com céu limpo...\"\n- Em caso de erro, retorne a resposta com o erro gerado\n\n# FORMATO DE SAÍDA OBRIGATÓRIO\nRetorne estritamente um JSON no seguinte formato, sem textos explicativos fora do bloco:\n{\n  \"Response\": \"Texto da mensagem formatada aqui\"\n}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        272,
+        400
+      ],
+      "id": "c95e724b-cd5e-4573-b7cf-3cb6c5c50141",
+      "name": "AI Agent",
+      "alwaysOutputData": true,
+      "retryOnFail": false,
+      "notesInFlow": true,
+      "onError": "continueErrorOutput",
+      "notes": "Responsável por receber as informações e formatar uma resposta para o usuário. Caso aconteça algum tipo de erro e o agente retorne um objeto vazio, este erro será tratado no nós seguinte"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"response\": \"resposta aqui\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        496,
+        624
+      ],
+      "id": "2cdcb420-bf67-4b7e-8847-183da5366d36",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        240,
+        624
+      ],
+      "id": "ededb46b-ae6c-4bd3-817b-54e1eb599be8",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GOpntlLcO5Si5vhE",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=8158126132",
+        "text": "={{ $json.output.response }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        928,
+        408
+      ],
+      "id": "c0749fbc-5341-41fa-80f4-4d6e31cf3ffd",
+      "name": "Resposta para o usuário",
+      "webhookId": "da440c44-204b-4f96-a518-38cd09b9e24a",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "ncqEaNufyIPqjMAS",
+          "name": "Bot_do_clima"
+        }
+      },
+      "notes": "Responde para o usuário com a mensagem criada pelo agente"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1003eb54-cc56-4432-b7e2-7d0db857bf1d",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        504
+      ],
+      "id": "eff106c4-c655-46f2-bf1d-f2df0a01a383",
+      "name": "Verifica se existe a resposta do agente",
+      "notesInFlow": true,
+      "notes": "Valida se o agente retornou alguma resposta e em caso de erro, encaminha o fluxo para a mensagem padrão do sistema. Dessa forma, o usuário receberá as informações mesmo em caso de erro do agente ou modelo conectado a ele, mas de forma mais simplificada"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -880,
+        748
+      ],
+      "id": "99ff5062-1bab-479a-81cc-feaa7ec24fb5",
+      "name": "Mensagem do usuário",
+      "webhookId": "dcf34bf4-b500-4c43-be49-968f0a737ec9",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "ncqEaNufyIPqjMAS",
+          "name": "TELEGRAM_BOT_TOKEN"
+        }
+      },
+      "notes": "Este nó é responsável por receber o nome da cidade e estado para consultar a api da OpenWeather"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Captura o texto enviado pelo usuário no Telegram\nconst rawText = $json.message.text || \"\";\n\n// 1. Remove espaços desnecessários nas extremidades\nlet cleanText = rawText.trim();\n\n// 2. Divide a string pela vírgula\nlet parts = cleanText.split(\",\");\n\n// 3. Normalização\nlet cidade = parts[0] ? parts[0].trim() : \"\";\nlet estado = parts[1] ? parts[1].trim().toUpperCase() : \"\"; // Estado sempre em MAIÚSCULO\n\n// 4. Monta a string final para a API (Cidade,UF,BR)\n// A API lida bem com acentuação, então mantemos o nome da cidade original, apenas com trim.\nconst buscaApi = `${cidade},${estado},BR`;\n\nreturn {\n  cidade: cidade,\n  estado: estado,\n  termoBusca: buscaApi,\n  valido: (cidade !== \"\" && estado.length === 2) // Validação simples\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        748
+      ],
+      "id": "833b7e4d-68d8-4ee6-b489-ce5f77a4ce69",
+      "name": "Cria JSON para consulta na API"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d22d275d-ae27-4483-ad56-f34341a7016a",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -432,
+        748
+      ],
+      "id": "7f18d4a8-7c68-4903-b0aa-511d01a8a1cd",
+      "name": "Verifica validade do JSON"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Mensagem do usuário').item.json.message.chat.id }}",
+        "text": "=❌ Formato inválido. Use o formato Cidade,UF(ex.: São Paulo,SP). Certifique-se de que  tenha digitado corretamente.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        844
+      ],
+      "id": "ee185cb7-28c7-4bf1-bbbf-8ed37ee99286",
+      "name": "Envia erro para usuário",
+      "webhookId": "55db96c6-5cd3-4bbd-b970-00aefa4495ee",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "ncqEaNufyIPqjMAS",
+          "name": "Bot_do_clima"
+        }
+      },
+      "notes": "Caso algum erro aconteça, a mensagem de erro é enviada para p usuário pedindo para que envie as informações on formato correto"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/weather",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.termoBusca }}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            },
+            {
+              "name": "lang",
+              "value": "pt_br"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -208,
+        652
+      ],
+      "id": "176e5c6f-2533-4276-a174-56ea7fd2abed",
+      "name": "Consulta OpenWeather",
+      "notesInFlow": true,
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "KyWxVw1fdKgJAxir",
+          "name": "OPENWEATHER_API_KEY"
+        }
+      },
+      "notes": "Busca as informações do clina da cidade que o usuário informou"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e3dc2231-126e-435b-8895-228ddab0912a",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e8cf3a3e-fa17-4deb-ad9b-bd64f40091f7",
+              "leftValue": "={{ $json.main.temp }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "58363bc1-e9c5-484d-acac-ebcebbea1b3a",
+              "leftValue": "={{ $json.cod }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        16,
+        652
+      ],
+      "id": "e29f418a-11df-4928-85b9-77672d58806a",
+      "name": "Validação das informações",
+      "notesInFlow": true,
+      "notes": "Valida se o retorno possui todos os campos e informações necessárias para seguir com o fluxo"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Mensagem do usuário').item.json.message.chat.id }}",
+        "text": "=❌ Cidade não encontrada. Use o formato Cidade,UF (ex.: São Paulo,SP).",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        360,
+        800
+      ],
+      "id": "e8e6b7ee-8dc8-4677-b1af-8bc15e4ee46f",
+      "name": "Envia erro para o usuário",
+      "webhookId": "55db96c6-5cd3-4bbd-b970-00aefa4495ee",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "ncqEaNufyIPqjMAS",
+          "name": "Bot_do_clima"
+        }
+      },
+      "notes": "Caso aconteça algum tipo de erro no momento da consulta à API, o erro é retornado para o usuário pedindo para que envie as informações no formato desejado."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        600
+      ],
+      "id": "c2d36a22-6042-44d8-9fd4-b47ea439e422",
+      "name": "Ajusta resposta para o usuário",
+      "notesInFlow": true,
+      "notes": "Este nó vai \"fingir\" ser o Gemini quando ele falhar."
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Mensagem do usuário').item.json.message.chat.id }}",
+        "text": "=🌤️ A temperatura em {{ $json.name }} é de {{ $json.main.temp.round(1)+\"ºC\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1152,
+        600
+      ],
+      "id": "e52e5155-3991-4846-8c3b-4f5546d4fbc8",
+      "name": "Resposta para o usuário1",
+      "webhookId": "9b1bc5a8-d322-4fbd-92e7-849cbab34f3b",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "ncqEaNufyIPqjMAS",
+          "name": "TELEGRAM_BOT_TOKEN"
+        }
+      },
+      "notes": "Responde para o usuário com a mensagem padrão, por conta da falha do Gemini."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        368,
+        624
+      ],
+      "id": "826ef1c2-7ea6-4baa-b965-a14d7bed0bf8",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "uuXZNuOfJV5UjFCY",
+          "name": "OpenRouter account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Mensagem do usuário": [
+      {
+        "json": {
+          "update_id": 691581295,
+          "message": {
+            "message_id": 42,
+            "from": {
+              "id": 8158126132,
+              "is_bot": false,
+              "first_name": "Adriano",
+              "last_name": "Klein",
+              "language_code": "pt-br"
+            },
+            "chat": {
+              "id": 8158126132,
+              "first_name": "Adriano",
+              "last_name": "Klein",
+              "type": "private"
+            },
+            "date": 1768738115,
+            "text": "São Paulo, sp"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Verifica se existe a resposta do agente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica se existe a resposta do agente": {
+      "main": [
+        [
+          {
+            "node": "Resposta para o usuário",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ajusta resposta para o usuário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem do usuário": {
+      "main": [
+        [
+          {
+            "node": "Cria JSON para consulta na API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cria JSON para consulta na API": {
+      "main": [
+        [
+          {
+            "node": "Verifica validade do JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica validade do JSON": {
+      "main": [
+        [
+          {
+            "node": "Consulta OpenWeather",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Envia erro para usuário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consulta OpenWeather": {
+      "main": [
+        [
+          {
+            "node": "Validação das informações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validação das informações": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Envia erro para o usuário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ajusta resposta para o usuário": {
+      "main": [
+        [
+          {
+            "node": "Resposta para o usuário1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b63ce4d3-066c-46ba-9be9-586a6361fb4e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ee21bf8320f49f6df4a7e455ba50f960ad5ea3dbb2ae8b35bfd6ddd950143292"
+  },
+  "id": "Vg07qQJsJ5EHAUMc",
+  "tags": [
+    {
+      "updatedAt": "2025-10-30T12:11:07.961Z",
+      "createdAt": "2025-10-30T12:11:07.961Z",
+      "id": "xjSM5R04IJQI3e0A",
+      "name": "Study"
+    },
+    {
+      "name": "Challenge",
+      "id": "RKxbvzdjPL9o1G19",
+      "updatedAt": "2026-01-17T23:14:30.627Z",
+      "createdAt": "2026-01-17T23:14:30.627Z"
+    }
+  ]
+}
