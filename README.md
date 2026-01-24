@@ -98,4 +98,4 @@ O fluxo segue a seguinte lógica de execução:
 
 ### **👨‍💻 Autor**
 
-Projeto desenvolvido como parte do Desafio Fase 2 de Automação com n8n.
+Projeto desenvolvido por Adriano Klein como parte do Desafio Fase 2 de Automação com n8n da Rocketseat.
